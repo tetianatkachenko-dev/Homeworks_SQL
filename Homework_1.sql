@@ -110,7 +110,11 @@ VALUES (1, 1, 'Accepted'),
 (9, 9, 'Pending'),
 (10, 10, 'Accepted');   
 
--- My main goal was found top-position (I used two criterias — AVG(gpa) should be bigger than 70), where you can earn the best expirience
+-- The idea for select was genereted by using AI tool (Ghat GPT) by providing it information about table and spesific function that I shoul use in this assignment.
+-- Promt: "Зараз в мене є ось такий код "all the data in this document above this comment". Розроби мені завдання для вибірки, щоб я застосувала select, join 5 таблиць, CTE, subquery, where, group by, having, order by, limit та union. Сформулюй завдання так, щоб воно мало практичний зміст."
+-- After this answer I add some personal thoughts to get a bit another task.
+
+-- So my main goal was found top-position (I used two criterias — AVG(gpa) should be bigger than 70), where you can earn the best expirience
 -- And AVG(duration) should be more than avarage duration of all courses) and top-mentor (there is also two criterias — there shoul be at least two aplications from their students and AVG(gpa) should be bigger than avarage GPA of all students )
 
 
@@ -143,3 +147,6 @@ top_mentors AS (
     LIMIT 1  -- Limit 1 because I want to know the best mentor for internship
 )
 SELECT name_or_position, total_accepted, avg_gpa FROM top_positions UNION ALL SELECT name_or_position, total_accepted, avg_gpa FROM top_mentors;
+
+
+-- By using AI I resolved also some mistakes that occured during my work. One of example of my promt: "Поясни чому виникає помилка 1452 при роботі з sql". Mistakes that occured during my work: 1452, 1064, 1054 was the most common. Sometimes, I provided part of my code to find mistakes (for exampe — first part of CTE accepted).
