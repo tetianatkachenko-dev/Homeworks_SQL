@@ -59,7 +59,8 @@ JOIN customers c
 JOIN products p
     ON o.product_id = p.product_id
 WHERE o.total_amount > 100
-ORDER BY o.order_date;
+ORDER BY o.order_date
+LIMIT 10000;
 
 DROP INDEX idx_orders_total_amount ON orders;
 DROP INDEX idx_orders_product ON orders;
@@ -87,9 +88,9 @@ SELECT
     p.name AS product_name,
     p.price AS product_price
 FROM filtered_orders f
-JOIN customers c
+JOIN customers c USE INDEX (idx_customers_id)
     ON f.customer_id = c.customer_id
-JOIN products p
+JOIN products p USE INDEX (idx_products_id)
     ON f.product_id = p.product_id
 ORDER BY f.order_date;
 
