@@ -1,0 +1,274 @@
+CREATE DATABASE homework_2;
+USE homework_2;
+
+CREATE TABLE products(
+	product_id INT PRIMARY KEY AUTO_INCREMENT, 
+	name VARCHAR(255) NOT NULL, 
+    description TEXT, 
+    price DECIMAL(10, 2) NOT NULL, 
+    stock_quantity INT, 
+    category_id INT
+);
+
+CREATE TABLE customers(
+	customer_id INT PRIMARY KEY AUTO_INCREMENT,
+    first_name VARCHAR(100) NOT NULL, 
+    last_name VARCHAR(100) NOT NULL, 
+    email VARCHAR(255) UNIQUE NOT NULL, 
+    phone VARCHAR(50), 
+    address VARCHAR(255), 
+    city VARCHAR(100)
+);
+
+CREATE TABLE orders( 
+	order_id INT PRIMARY KEY AUTO_INCREMENT, 
+    customer_id INT NOT NULL, 
+    order_date DATETIME, 
+    total_amount DECIMAL(10, 2) NOT NULL, 
+    payment_method VARCHAR(100), 
+	FOREIGN KEY (customer_id) REFERENCES customers(customer_id) );
+    
+ALTER TABLE orders
+ADD COLUMN product_id INT;
+    
+SELECT COUNT(*) AS total_products
+FROM products
+UNION
+SELECT COUNT(*) AS total_customers
+FROM customers;
+
+SELECT *
+FROM orders;
+
+
+SELECT
+    c.first_name,
+    c.last_name,
+    o.order_id,
+    o.order_date,
+    o.total_amount,
+    o.payment_method,
+    p.name AS product_name,
+    p.price AS product_price
+FROM orders o
+JOIN customers c
+    ON o.customer_id = c.customer_id
+JOIN products p
+    ON o.product_id = p.product_id
+WHERE o.total_amount > 100
+ORDER BY o.order_date;
+
+SHOW VARIABLES LIKE 'max_allowed_packet';
+SHOW VARIABLES LIKE 'wait_timeout';
+
+DROP INDEX idx_orders_total_amount ON orders;
+DROP INDEX idx_orders_product ON orders;
+DROP INDEX idx_orders_date ON orders;
+
+
+CREATE INDEX idx_orders_total_amount ON orders(total_amount);
+
+CREATE INDEX idx_orders_customer ON orders(customer_id);
+
+CREATE INDEX idx_orders_product ON orders(product_id);
+
+CREATE INDEX idx_orders_date ON orders(order_date);
+
+CREATE INDEX idx_customers_id ON customers(customer_id);
+
+CREATE INDEX idx_products_id ON products(product_id);
+
+WITH FilteredOrders AS (
+    SELECT order_id, customer_id, product_id, order_date, total_amount, payment_method
+    FROM orders
+    WHERE total_amount > 100
+    LIMIT 10000
+)
+SELECT
+    c.first_name,
+    c.last_name,
+    f.order_id,
+    f.order_date,
+    f.total_amount,
+    f.payment_method,
+    p.name AS product_name,
+    p.price AS product_price
+FROM FilteredOrders f
+JOIN customers c
+    ON f.customer_id = c.customer_id
+JOIN products p
+    ON f.product_id = p.product_id
+ORDER BY f.order_date;
+
+
+
+import subprocess
+import sys
+
+# --- Список потрібних модулів ---
+required_packages = [
+    "mysql-connector-python",
+    "Faker"
+]
+
+
+# --- Функція для перевірки та встановлення ---
+def install(package):
+    try:
+        __import__(package)
+    except ImportError:
+        print(f"Installing {package}...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+    else:
+        print(f"{package} already installed.")
+
+# --- Перевіряємо всі пакети ---
+for pkg in required_packages:
+    # Для mysql-connector-python імпортиться як mysql.connector
+    import_name = "mysql.connector" if pkg == "mysql-connector-python" else pkg
+    try:
+        __import__(import_name)
+        print(f"{pkg} already installed.")
+    except ImportError:
+        print(f"Installing {pkg}...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+
+print("✅ All required modules are installed!")
+
+# --- Тут починається твій основний код ---
+import mysql.connector
+from faker import Faker
+import random
+from datetime import datetime, timedelta
+
+print("Modules ready! You can start your script.")
+
+
+# --- Підключення до MySQL ---
+connection = mysql.connector.connect(
+    host="localhost",
+    user="root",          # заміни на свій логін
+    password="!TTkachKSE2508!",  # заміни на свій пароль
+    database="homework_2"    # назва бази даних
+)
+
+cursor = connection.cursor()
+fake = Faker()
+
+# --- Кількість записів ---
+NUM_RECORDS = 1_000_000
+
+# --- 1. Заповнення таблиці Products ---
+print("Inserting products...")
+
+products = [
+    (
+        fake.word().capitalize(),
+        fake.sentence(),
+        round(random.uniform(5, 500), 2),
+        random.randint(0, 1000),
+        random.randint(1, 10)
+    )
+    for _ in range(NUM_RECORDS)
+]
+
+cursor.executemany(
+    """
+    INSERT INTO Products (name, description, price, stock_quantity, category_id)
+    VALUES (%s, %s, %s, %s, %s)
+    """,
+    products
+)
+
+connection.commit()
+print("✅ Products inserted")
+
+# --- 2. Заповнення таблиці Customers ---
+print("Inserting customers...")
+customers = [
+    (
+        fake.first_name(),
+        fake.last_name(),
+        f"{fake.first_name().lower()}.{i}@example.com",  # унікальний email через i
+        fake.phone_number(),
+        fake.address(),
+        fake.city()
+    )
+    for i in range(NUM_RECORDS)
+]
+
+
+cursor.executemany("""
+    INSERT IGNORE INTO Customers (first_name, last_name, email, phone, address, city)
+    VALUES (%s, %s, %s, %s, %s, %s)
+""", customers)
+
+connection.commit()
+print("✅ Customers inserted")
+
+# --- 3. Заповнення таблиці Orders ---
+print("Inserting orders...")
+cursor.execute("SELECT customer_id FROM Customers")
+all_customer_ids = [row[0] for row in cursor.fetchall()]
+
+orders = []
+for _ in range(NUM_RECORDS):
+    customer_id = random.choice(all_customer_ids)
+    order_date = fake.date_time_between(start_date='-2y', end_date='now')
+    total_amount = round(random.uniform(10, 1000), 2)
+    payment_method = random.choice(['card', 'cash', 'apple_pay', 'google_pay'])
+    orders.append((customer_id, order_date, total_amount, payment_method))
+
+cursor.executemany("""
+    INSERT INTO orders (customer_id, order_date, total_amount, payment_method)
+    VALUES (%s, %s, %s, %s)
+""", orders)
+connection.commit()
+print("✅ Orders inserted")
+
+cursor.close()
+connection.close()
+print("🎉 Done! 1,000,000 rows inserted into each table.")
+
+
+
+import mysql.connector
+import random
+
+# Підключення до MySQL
+connection = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="!TTkachKSE2508!",
+    database="homework_2"
+)
+
+cursor = connection.cursor()
+
+# 1. Отримуємо всі product_id
+cursor.execute("SELECT product_id FROM products")
+product_ids = [row[0] for row in cursor.fetchall()]
+
+# 2. Оновлюємо кожне замовлення випадковим product_id
+# Примітка: для мільйона рядків не робимо один UPDATE на рядок (дуже повільно)
+# Робимо пакетне оновлення по 10000 рядків
+batch_size = 10000
+cursor.execute("SELECT order_id FROM orders")
+order_ids = [row[0] for row in cursor.fetchall()]
+
+for i in range(0, len(order_ids), batch_size):
+    batch_orders = order_ids[i:i+batch_size]
+    for order_id in batch_orders:
+        product_id = random.choice(product_ids)
+        cursor.execute(
+            "UPDATE orders SET product_id = %s WHERE order_id = %s",
+            (product_id, order_id)
+        )
+    connection.commit()
+    print(f"Updated rows {i+1} to {i+len(batch_orders)}")
+
+cursor.close()
+connection.close()
+print("✅ Колонка product_id заповнена випадковими продуктами")
+
+
